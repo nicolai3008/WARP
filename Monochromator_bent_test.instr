@@ -1,0 +1,190 @@
+/*******************************************************************************
+* Instrument: Monochromator_Bent_test
+*
+* %I
+* Written by: Nicolai Lindaa Amin (s194113@dtu.dk)
+* Date: 25. July 2024
+* Origin: PSI / DTU
+* %INSTRUMENT_SITE: PSI
+*
+* A simple instrument file to test and debug the Monochromator_bent.comp
+* Currently not working perfectly, as there is a shadow around the reflected
+* beam, at the detector position, but will be fixed soon.
+*
+* %D
+* Monochroamtor_bent test
+* thickness [m] 	Thickness of monochromator slab
+* sample_x [m]		Width of source
+* sample_y [m]		Height of source
+* L0_m [m]		Length from source to monochromator
+* L1_m [m]		Length from monochromator to slit
+* d_E [meV]		Energy width of source
+* E_m [meV]		Central energy of source, and reflected energy of
+*			monochromator
+* mos [arcmin]		Mosaicity of monochromator
+* det_rot [deg]		Rotation of the detector with respect to the angle
+* 			from the monochromator
+* focus [deg]		FWHM of source divergence
+*
+* %L
+* <WARP_Github/https://github.com/nicolai3008/WARP>
+*
+* %E
+*******************************************************************************/
+DEFINE INSTRUMENT template_simple(thickness=0.002, sample_x=0.01, sample_y=0.01, L0_m = 0.9, L1_m = 1, d_E = 0.5, E_m = 5, mos=60, det_rot=0, focus=4)
+
+DECLARE
+%{
+// What energies to simulate
+double A5;
+double A6;
+double d_SI111;
+double l_m;
+double L0_min;
+
+double width;
+double height;
+double R_Cs;
+
+// Functions
+double R_C(double L0, double L1, double theta){
+    return (L0+L1)/(2*sin((theta)*DEG2RAD));
+};
+double TT_Bragg(double D, double L){
+    return asin((L)/(D*2))*RAD2DEG*2;
+};
+double L_Bragg(double D, double T){
+    return D*sin(T*DEG2RAD)*2;
+};
+double en2la(double E){
+    return 9.045/(sqrt(E));
+};
+double la2en(double l){
+    return 81.82/(l*l);
+};
+
+int scat=0;
+%}
+
+USERVARS
+%{
+%}
+
+INITIALIZE
+%{
+d_SI111 = 3.13536;
+l_m = en2la(E_m);
+A6 = TT_Bragg(d_SI111, l_m);
+A5 = A6/2;
+
+width = (-2*L0_m*tan(2*DEG2RAD))/(tan(2*DEG2RAD)*cos(DEG2RAD*A5)-sin(DEG2RAD*A5));
+height = 2*tan(2*DEG2RAD)*(L0_m-cos(DEG2RAD*A5)*width/2);
+printf("%f, %f\n",width,height);
+R_Cs =  R_C(L0_m,L1_m,A5);
+%}
+
+TRACE
+
+COMPONENT origin = Progress_bar()
+AT (0, 0, 0) RELATIVE ABSOLUTE
+
+// Source should be white source with variable dimensions
+COMPONENT source = Source_div(
+    xwidth=sample_x, 
+    yheight=sample_y, 
+    focus_aw=focus, 
+    focus_ah=focus, 
+    E0=E_m, 
+    dE=d_E)
+AT (0, 0, 0) RELATIVE origin
+
+
+COMPONENT psd_test = PSD_monitor(
+    filename="psd_test", 
+    xmin=-0.1, 
+    xmax=0.1, 
+    ymin=-0.1, 
+    ymax=0.1, 
+    restore_neutron=1)
+AT (0, 0, 0.5) RELATIVE PREVIOUS
+
+COMPONENT e_monitor_0 = E_monitor(
+    nE=100, 
+    filename="Energy_0", 
+    xwidth=1, 
+    yheight=1, 
+    Emin=4, 
+    Emax=6,
+    restore_neutron=1)
+AT (0, 0, 0.001) RELATIVE PREVIOUS
+
+COMPONENT A_Pos = Arm()
+AT (0, 0, L0_m) RELATIVE PREVIOUS
+
+
+COMPONENT Mono_1 = Monochromator_bent(
+	zwidth = width,
+	yheight = height,
+	xthickness = thickness,
+	plane_of_reflection = "Si111",
+	radius_x = R_Cs,
+	angle_to_cut_horizontal = 0,
+	angle_to_cut_vertical = 0,
+	mosaicity = mos,
+    verbose = 0)
+AT (0, 0, 0) RELATIVE A_Pos
+ROTATED (0, A5, 0) RELATIVE A_Pos
+
+
+COMPONENT A6_pos = Arm()
+AT (0, 0, 0) RELATIVE A_Pos
+ROTATED (0, A6, 0) RELATIVE A_Pos
+
+COMPONENT psd_monitor_slit = PSD_monitor(
+    nx=1001, 
+    ny=1001, 
+    xwidth=1, 
+    yheight=1,
+    restore_neutron=1)
+AT (0, 0, L1_m) RELATIVE PREVIOUS
+
+
+COMPONENT slit_1 = Slit(
+    xmin=-0.02,
+    xmax=0.02,
+    ymin=-0.04,
+    ymax=0.04)
+AT (0, 0, 0) RELATIVE PREVIOUS
+
+
+COMPONENT e_monitor = E_monitor(
+    nE=250, 
+    filename="Energy", 
+    xwidth=1, 
+    yheight=1, 
+    Emin=E_m-1, 
+    Emax=E_m+1)
+AT (0, 0, L1_m) RELATIVE PREVIOUS
+
+COMPONENT psd_monitor_end = PSD_monitor(
+    nx=1001, 
+    ny=1001, 
+    xwidth=0.4, 
+    yheight=0.4,
+    restore_neutron=1)
+AT (0, 0, 0) RELATIVE PREVIOUS
+
+COMPONENT E_PSD_mon_end = Monitor_nD(
+    options = "x bins=601 energy limits=[3 7] bins=201",
+    filename="E_end", 
+    xwidth=0.4, 
+    yheight=0.02)
+AT (0, 0, 0) RELATIVE PREVIOUS
+
+
+FINALLY
+%{
+%}
+
+END
+ 

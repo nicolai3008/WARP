@@ -1,0 +1,805 @@
+/******************************************************************************
+*
+* McStas, neutron ray-tracing package
+*         Copyright 1997-2002, All rights reserved
+*         Risoe National Laboratory, Roskilde, Denmark
+*         Institut Laue Langevin, Grenoble, France
+*
+* Component: Monochromator_bent_simple
+*
+* %I
+* Written by: Nicolai Lindaa Amin <s194113@dtu.dk>
+* Based on more complicated Monochromator_bent by Daniel Lomholt Christensen
+* implemented for PSI WARP instrument proposal. Once Monochromator_bent is done, this
+* component should be replaced as this is a simple budget version of that component.
+* 
+*
+* Date: 15 July 2024
+* Origin: PSI, Paul Schreerer Institut, Villigen, Switzerland
+*
+* A perfect bent crystal monochromator.
+*
+* %D
+* This monochromator is a single monochromatic thick crystal. 
+* The crystal is bent, so that it follows a curve on a cylinder of radius R_C.
+* The monochromator lies along the z plane, so when a diffraction angle of theta 
+* is desired, it should just be inserted in the ROTATED parameter around
+* the y-axis.
+* Instruments that showcase the use of this component is the 
+* "Test_monochromator_bent.instr", and the "PSI_WARP.instr" under the examples folder.
+* WARP showcases its complex use in a real instrument, while Test_monochromator_bent
+* makes a simple show of its capabilities.
+*
+*
+* %P
+* INPUT PARAMETERS:
+*
+* zwidth [m]                   			Width of each lamella without bending.
+* yheight [m]                			Height of each lamella without bending.
+* xthickness [m]             			Thickness of each lamella without bending.
+* radius_x [m]               			Radius of the circle the monochromator bends on in the plane.
+* plane_of_reflection ["Si111"] 		The plane of reflection from the material. The list of possible reflections can 
+* 										can be seen in the source code.
+* angle_to_cut_horizontal [degrees]  	Angle between cut and normal of crystal slab, horizontally
+* angle_to_cut_vertical [degrees] 		Angle between cut and normal of crystal slab, vertically
+* mosaicity [arc minutes]               Gaussian mosaicity of the crystal. 
+* domainthickness [micro meter]			Thickness of the crystal domains.
+* verbose: [0]							Verbosity of the monochromator. Used for debugging. 
+*
+* %E
+******************************************************************************/
+DEFINE COMPONENT Monochromator_bent_simple
+DEFINITION PARAMETERS ()
+SETTING PARAMETERS (zwidth = 0.2,
+					yheight = 0.1,
+					xthickness = 0.0005,
+					radius_x = 2,
+					string plane_of_reflection = "Si111",
+					angle_to_cut_horizontal = 0,
+					angle_to_cut_vertical = 0,
+					mosaicity = 30,
+					domainthickness = 10,
+					int verbose = 0)
+OUTPUT PARAMETERS ()
+// Neutron parameters: (x,y,z,vx,vy,vz,t,sx,sy,sz,p) 
+
+SHARE
+%{
+    #include <string.h>
+
+////////////////////////////
+// Mathematical Functions //
+////////////////////////////
+
+	double sign(double x){
+		if (x > 0) return 1;
+		if (x < 0) return -1;
+	}
+
+    double square(double x){
+        return x*x;
+    }
+
+	double gauss_0(double sigma){
+		double u1, u2;
+		u1 = rand01();
+		u2 = rand01();
+		double r = sqrt(-2 * log(u1));
+		double theta = 2 * M_PI * u2;
+		return sigma * r * cos(theta);
+	}
+
+	// The following two function returns, respectively, the Gaussian cumulative distribution function,
+	// And the inverse gaussian cumulative distribution function.
+	double normalCDF(double value) {
+		return 0.5 * erfc(-value * M_SQRT1_2);
+	}
+
+	double inverse_of_normal_cdf(double p){
+		if (p <= 0 || p >= 1) return sign(p)*6;
+
+		double mu = 0;
+		double sigma = 1;
+		double r, val;
+		double q = p - 0.5;
+
+		if (abs(q) <= .425) {
+			r = .180625 - q * q;
+			val =
+				q * (((((((r * 2509.0809287301226727 +
+					33430.575583588128105) * r + 67265.770927008700853) * r +
+					45921.953931549871457) * r + 13731.693765509461125) * r +
+					1971.5909503065514427) * r + 133.14166789178437745) * r +
+					3.387132872796366608)
+				/ (((((((r * 5226.495278852854561 +
+					28729.085735721942674) * r + 39307.89580009271061) * r +
+					21213.794301586595867) * r + 5394.1960214247511077) * r +
+					687.1870074920579083) * r + 42.313330701600911252) * r + 1);
+		}
+		else {
+			if (q > 0) {
+				r = 1 - p;
+			}
+			else {
+				r = p;
+			}
+
+			r = sqrt(-log(r));
+
+			if (r <= 5) 
+			{
+				r += -1.6;
+				val = (((((((r * 7.7454501427834140764e-4 +
+					.0227238449892691845833) * r + .24178072517745061177) *
+					r + 1.27045825245236838258) * r +
+					3.64784832476320460504) * r + 5.7694972214606914055) *
+					r + 4.6303378461565452959) * r +
+					1.42343711074968357734)
+					/ (((((((r *
+						1.05075007164441684324e-9 + 5.475938084995344946e-4) *
+						r + .0151986665636164571966) * r +
+						.14810397642748007459) * r + .68976733498510000455) *
+						r + 1.6763848301838038494) * r +
+						2.05319162663775882187) * r + 1);
+			}
+			else { /* very close to  0 or 1 */
+				r += -5;
+				val = (((((((r * 2.01033439929228813265e-7 +
+					2.71155556874348757815e-5) * r +
+					.0012426609473880784386) * r + .026532189526576123093) *
+					r + .29656057182850489123) * r +
+					1.7848265399172913358) * r + 5.4637849111641143699) *
+					r + 6.6579046435011037772)
+					/ (((((((r *
+						2.04426310338993978564e-15 + 1.4215117583164458887e-7) *
+						r + 1.8463183175100546818e-5) * r +
+						7.868691311456132591e-4) * r + .0148753612908506148525)
+						* r + .13692988092273580531) * r +
+						.59983220655588793769) * r + 1);
+			}
+
+			if (q < 0.0) {
+				val = -val;
+			}
+		}
+
+		return mu + sigma * val;
+	}
+
+	// Integral needed for debye factor
+	double calculate_phi_integral(double x){
+	// Asymptotic approximation
+		if (x > 5) return PI * PI / 6 - exp(-x)/(x+1);
+	// Integate with Simpson/3. I dont know what this means
+		double z = 1 + x/(exp(x)-1);
+		double dx = x/100;
+		double ksi;
+		for (int i = 2; i <= 100; i++) {
+			ksi = (i-1)*dx;
+			switch (i%2){
+				case 1:
+					z = z + 4 * ksi/(exp(ksi)-1);
+					break;
+				case 0:
+					z = z + 2 * ksi/(exp(ksi)-1);
+					break;
+			}
+		}
+		return z*dx/3;
+	}
+
+//////////////////////////////////////////////
+// Structures for neutron and monochromator //
+//////////////////////////////////////////////
+
+    // Neutron values to save throughout the simulation
+    struct neutron_values {
+		// Statically allocate vectors that are always 3 
+		double ki[3]; // Incoming wavevector
+		double ki_size; // size of incoming wavevector
+		double kf[3]; // outgoig wavevector
+		double kf_size; // size of outgoing wavevector
+		double r[3]; // Position at a given time during the simulation
+		double v[3]; // velocity of neutron
+		double v_size; // speed
+		double l; // De Broglie wavelength of neutron
+        double E; // energy of neutron
+		double absorption; // Absorption factor
+		double path; // Length of the path the neutron follows
+		double entry_time; // Time to start of crystal
+		double exit_time; // Time to end of crystal (if not scattered)
+        double dt; // time elapsed since start of simulation
+		double Gr[3];
+		double Gr_size;
+		double Grad_G[3];
+		double Grad_G_size;
+		double perp_to_Gk[3];
+		double perp_size;
+		double gamma_0;
+		double Ggamma[3];
+		double Bragg_angle;
+		double eps;
+		double eps_zero;
+		double beta;
+		double P[4];
+		double tau[4];
+		double max_tau;
+		int direction;
+    };
+
+    // Monochromator Values to save throughout the simulation
+    struct monochromator_values{
+		double length, height, thickness;
+		double mos;
+		int type;
+		double radius_horizontal;
+		double Debye_Waller_factor;
+		double lattice_spacing;
+		double Maier_Leibnitz_reflectivity;
+		double poisson_ratio;
+		double bound_atom_scattering_cross_section;
+		double absorption_for_1AA_Neutrons;
+		double incoherent_scattering_cross_section;
+		double volume;
+		double Constant_from_Freund_paper;
+		double debye_temperature;
+		double atomic_number;
+		double temperature_mono;
+		double B0;
+		double BT;
+		double single_phonon_absorption;
+		double multiple_phonon_absorption;
+		double nuclear_capture_absorption;
+		double total_absorption;
+		double G_size_zero;
+		double G0[3];
+		double lattice_spacing_gradient_field[3][3];
+		double domain_thickness;
+		double max_angle;
+		double min_angle;
+	};
+
+///////////////////////////////
+// Crystal Plane information //
+///////////////////////////////
+
+    // Enumerated planes
+    enum crystal_plane {Cu111, Cu200, Cu220, Cu311, Cu400, Cu331, Cu420, Cu440, Ge111, Ge220, Ge311,
+				 Ge400, Ge331, Ge422, Ge511, Ge533, Ge711, Ge551, Si111, Si220, Si311, Si400, Si331, 
+				Si422, Si333, Si511, Si440, Si711, Si551, Be10, Be100, Be102, Be103, Be110, Be112, Be200, 
+				Be00_2, Be10_1, PG00_2,PG00_4,PG00_6, Fe110, HS111,HS222,HS111star,Di111,Di220, Di311, Di400, 
+				Di331, Di422, Di333, Di511, Di440};
+
+	// An array containing all the possible strings that will be accepted if given as an 
+	// argument to the parameter plane_of_reflection 
+	const char* crystal_planeStrings[] = {
+		"Cu111", "Cu200", "Cu220", "Cu311", "Cu400", "Cu331", "Cu420", "Cu440", "Ge111", "Ge220", "Ge311",
+				 "Ge400", "Ge331", "Ge422", "Ge511", "Ge533", "Ge711", "Ge551", "Si111", "Si220", "Si311", "Si400", "Si331", 
+				"Si422", "Si333", "Si511", "Si440", "Si711", "Si551"," Be10", "Be100", "Be102", "Be103", "Be110", "Be112", "Be200", 
+				"Be00_2", "Be10_1", "PG00_2","PG00_4","PG00_6", "Fe110", "HS111","HS222","HS111star","Di111","Di220", "Di311", "Di400", 
+				"Di331", "Di422", "Di333", "Di511", "Di440"};
+
+	// Function to convert a string to an enum value
+	enum crystal_plane stringToEnum(const char* plane) {
+		for (int i = 0; i < sizeof(crystal_planeStrings) / sizeof(crystal_planeStrings[0]); ++i) {
+			if (strcmp(plane, crystal_planeStrings[i]) == 0) {
+				return (enum crystal_plane)i;
+			}
+		}
+	}
+
+	/* Crystal table for perfect crystal bent monochromator
+        Table copied from SIMRES, current url: https://github.com/saroun/simres
+        Contents: dhkl, QML,sigmab,sigmaa,V0,A,thetaD,C2,poi
+        dhkl ... Lattice spacing of crystal plane.
+        QML = 4*PI*(F*dhkl/V0)**2 [ A^-1 cm^-1]
+        sigmab ... bound-atom scattering cross-section [barn]
+        sigmaa ... absorption for 1A neutrons [barn*A^-1]
+        sigmai ... incoherent scattering cross-section [barn]
+        V0 .... volume [A^3]/atom
+        A  .... atomic number
+        thetaD .... Debye temperature (K)
+        C2 .... constant from the Freund's paper  [A^-2 eV^-1]
+        poi .... Poisson elastic constant */
+	double crystal_table[56][10] = {{ 2.087063,  0.23391E+00 ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 1.80745 , 0.17544E+00  ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 1.27806 , 0.87718E-01  ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 1.089933,  0.63795E-01 ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 0.903725,  0.43859E-01 ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 0.829315,  0.36934E-01 ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 0.808316,  0.35087E-01 ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 0.63903 , 0.21930E-01  ,7.485,  2.094,  0.55,	11.81,  63.54,  315,  12.00,  0.30000E+00},
+								{ 3.26665 , 0.87700E-01  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.15450E+00},
+								{ 2.00041 , 0.65760E-01  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.30000E+00},
+								{ 1.70595 , 0.23920E-01  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.15430E+00},
+								{ 1.41450 , 0.32880E-01  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.27300E+00},
+								{ 1.29803 , 0.13850E-01  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.15430E+00},
+								{ 1.15493 , 0.21925E-01  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.27270E+00},
+								{ 1.08888 , 0.97400E-02  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.27270E+00},
+								{ 0.86284 , 0.61200E-02  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.27270E+00},
+								{ 0.79228 , 0.51588E-02  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.27270E+00},
+								{ 0.79228 , 0.51600E-02  ,8.42 , 1.216,  0.18,  22.63,  72.6,  290,  9.0,  0.27270E+00},
+								{ 3.13536 , 0.25970E-01  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.18080E+00},
+								{ 1.92001 , 0.19480E-01  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.30000E+00},
+								{ 1.63739 , 0.70800E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 1.35765 , 0.97400E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 1.24587 , 0.41000E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.18080E+00},
+								{ 1.10852 , 0.64930E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 1.04512 , 0.28900E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 1.04512 , 0.28900E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 0.96000 , 0.48700E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 0.76044 , 0.15277E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 0.76044 , 0.15277E-02  ,2.18 , 0.0889,	0.0,  20.02,  28.09,  420,  6.36,  0.28000E+00},
+								{ 1.97956 , 0.11361      ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.30000E+00},
+								{ 1.97956 , 0.11361      ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.28000E+00},
+								{ 1.32857 , 0.05117      ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.28000E+00},
+								{ 1.02290 , 0.091        ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.28000E+00},
+								{ 1.14290 , 0.15147      ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.28000E+00},
+								{ 0.96363 , 0.10768      ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.28000E+00},
+								{ 0.98978 , 0.0284       ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.28000E+00},
+								{ 1.79215 , 0.37245      ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.30000E+00},
+								{ 1.73285 , 0.26116      ,7.62579,  0.00422655,	0.002,  8.10926,  9.012,  1100,  7.62,  0.30000E+00},
+								{ 3.35500 , 0.79500E+00  ,5.555,  0.0019,	0.0,  8.80,  12.01,  1050,  20.00,  0.30000E+00},
+								{ 1.67750 , 0.18000E+00  ,5.555,  0.0019,	0.0,  8.80,  12.01,  1050,  20.00,  0.30000E+00},
+								{ 1.11830 , 0.08833E+00  ,5.555,  0.0019,	0.0,  8.80,  12.01,  1050,  20.00,  0.30000E+00},
+								{ 2.02660 , 0.34031E+00  ,11.43,  2.53,	0.4 , 11.75 , 55.85,  411,  10.67 , 0.30000E+00},
+								{ 3.43500 , 0.11020E+00  ,1.79,  2.88,	0.55,  13.16,  48.0,  300,  12.00 , 0.30000E+00},
+								{ 1.71750 , 0.13130E+00  ,1.79,  2.88,	0.55,  13.16,  48.0,  300,  12.00 , 0.30000E+00},
+								{ 3.43500 , 0.55100E-01  ,1.79,  2.88,	0.55,  13.16,  48.0,  300,  12.00 , 0.30000E+00},
+								{ 2.05929 , 0.36606      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 1.26105 , 0.27455      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 1.07543 , 0.09984      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 0.89170 , 0.13727      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 0.81828 , 0.0578       ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 0.72807 , 0.09152      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 0.68643 , 0.04067      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 0.68643 , 0.04067      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 0.63053 , 0.06864      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00},
+								{ 0.63053 , 0.06864      ,5.55449  ,0.00194444,	0.0,  5.67213,  12.01,  1860,  3.00,  0.30000E+00}
+	};
+
+//////////////////////
+// Testing function //
+//////////////////////
+    void print_neutron_state(struct neutron_values* neutron){
+		printf("Neutron state:\nki %g, %g, %g\nkf %g, %g, %g\nv %g, %g, %g\nr %g, %g, %g\nG %g, %g, %g\nki size %g, kf size %g, v size %g, wavelength %g, energy %g, Gr %g\n\n", 
+			neutron->ki[0], neutron->ki[1], neutron->ki[2],
+			neutron->kf[0], neutron->kf[1], neutron->kf[2],
+			neutron->v[0], neutron->v[1], neutron->v[2],
+			neutron->r[0], neutron->r[1], neutron->r[2],
+			neutron->Gr[0], neutron->Gr[1], neutron->Gr[2],
+			neutron->ki_size, neutron->kf_size, neutron->v_size, neutron->l, neutron->E, neutron->Gr_size
+			);
+	};
+
+///////////////////////
+// Neutron Functions //
+///////////////////////
+    // Set neutron values
+    void set_neutron_values(
+		struct neutron_values* neutron,
+		double x, double y, double z,
+		double vx, double vy, double vz){
+			neutron->r[0] = x;
+			neutron->r[1] = y;
+			neutron->r[2] = z;
+			neutron->v[0] = vx;
+			neutron->v[1] = vy;
+			neutron->v[2] = vz;
+			neutron->v_size = 0;
+			neutron->ki_size = 0;
+			neutron->kf_size = 0;
+			for (int i =0; i<3; i++){ 
+				neutron->ki[i] = neutron->v[i]*V2K;
+				neutron->ki_size += square(neutron->ki[i]);
+				neutron->v_size += square(neutron->v[i]);
+				neutron->kf_size += square(neutron->kf[i]);
+			}        
+			neutron->v_size = sqrt(neutron->v_size);
+			neutron->ki_size = sqrt(neutron->ki_size);
+			neutron->kf_size = sqrt(neutron->kf_size);
+			neutron->l = 3956/neutron->v_size;// Wavelength in Angstrom
+            neutron->E = square(neutron->v_size/437); // Energy in meV
+	};
+
+	// Find intersection points with monochromator
+    int calc_intersection(struct monochromator_values* monochromator, struct neutron_values* neutron){
+        double curvature_x;
+        double inner_t0;
+        double inner_t1;
+        double outer_t0;
+        double outer_t1;
+        curvature_x = neutron->r[0]-monochromator->radius_horizontal-monochromator->thickness/2;
+        cylinder_intersect(&inner_t0,&inner_t1,
+							curvature_x,neutron->r[1],neutron->r[2],
+							neutron->v[0],neutron->v[1],neutron->v[2],
+							monochromator->radius_horizontal,
+							monochromator->height);
+        cylinder_intersect(&outer_t0,&outer_t1,
+                            curvature_x,neutron->r[1],neutron->r[2],
+							neutron->v[0],neutron->v[1],neutron->v[2],
+							monochromator->radius_horizontal+monochromator->thickness,
+                            monochromator->height);
+        // #TODO: This assumes that the neutron is traveling towards the monochromator, fix this
+        neutron->entry_time = inner_t0 > inner_t1 ? inner_t0 : inner_t1;
+        neutron->exit_time = outer_t0 > outer_t1 ? outer_t0 : outer_t1;
+    }
+
+	// Calculate scattering vector G
+	void calculate_G(struct monochromator_values* monochromator, struct neutron_values* neutron){
+		int i, j;
+		neutron->Gr_size = 0;
+		for (i=0; i<3; i++){
+			neutron->Gr[i] = monochromator->G0[i];
+			for (j=0; j<3; j++){
+				neutron->Gr[i] += monochromator->lattice_spacing_gradient_field[i][j]*neutron->r[j];
+			}
+			neutron->Grad_G[i] = neutron->Gr[i] - monochromator->G0[i];
+			neutron->Gr_size += square(neutron->Gr[i]);
+		}
+		neutron->Gr_size = sqrt(neutron->Gr_size);
+		
+		vec_prod(neutron->perp_to_Gk[0],neutron->perp_to_Gk[1],neutron->perp_to_Gk[2],neutron->ki[0],neutron->ki[1],neutron->ki[2],neutron->Gr[0],neutron->Gr[1],neutron->Gr[2]);
+		neutron->perp_size = sqrt(square(neutron->perp_to_Gk[0])+square(neutron->perp_to_Gk[1])+square(neutron->perp_to_Gk[2]));
+		neutron->gamma_0 = gauss_0(monochromator->mos);
+		double normalize = 0;
+		for (i=0;i<3;i++){
+			neutron->Ggamma[i] = neutron->Gr_size*neutron->perp_to_Gk[i]*neutron->gamma_0/neutron->perp_size;
+			neutron->Gr[i] += neutron->Ggamma[i];
+			normalize += square(neutron->Gr[i]);
+		}
+
+		neutron->Bragg_angle = acos((neutron->ki[0]*neutron->Gr[0]+neutron->ki[1]*neutron->Gr[1]+neutron->ki[2]*neutron->Gr[2])/(neutron->ki_size*neutron->Gr_size))-PI/2;
+	}
+
+	// Calculate epsilon zero and beta for the Jan Sauron Equations
+	void calculate_epszero_and_beta(struct monochromator_values* monochromator, struct neutron_values* neutron){
+		double temp_eps0 = 0;
+		double temp_beta = 0;
+		temp_eps0 += square(neutron->ki[0]+monochromator->G0[0]+neutron->Ggamma[0])
+						+ square(neutron->ki[1]+monochromator->G0[1]+neutron->Ggamma[1])
+						+ square(neutron->ki[2]+monochromator->G0[2]+neutron->Ggamma[2]);
+		temp_eps0 -= square(neutron->ki_size);
+		double denominator = 2*neutron->Gr_size*neutron->ki_size*cos(neutron->Bragg_angle);
+		neutron->eps_zero = temp_eps0/denominator*neutron->direction;
+		double Gk[3];
+		for (int i=0;i<3;i++){
+			Gk[i] = 0;
+			for (int j=0;j<3;j++){
+				Gk[i] += monochromator->lattice_spacing_gradient_field[i][j]*neutron->ki[j];
+			}
+			
+		}
+		temp_beta = (neutron->ki[0]+monochromator->G0[0])*Gk[0]
+					+ (neutron->ki[1]+monochromator->G0[1])*Gk[1]
+					+ (neutron->ki[2]+monochromator->G0[2])*Gk[2];
+		neutron->beta = neutron->direction*temp_beta/(denominator*neutron->ki_size/2);
+	}
+
+	// B0 and BT are values used for the Debye factor	
+	void calculate_B0_and_BT(struct monochromator_values *monochromator){
+		double x;
+		monochromator->B0 = 2872.556/monochromator->atomic_number
+								/monochromator->debye_temperature;
+		
+		if (monochromator->temperature_mono>0.1) x = monochromator->debye_temperature/monochromator->temperature_mono;
+		else x =monochromator->debye_temperature/0.1;
+		double phi = calculate_phi_integral(x);
+
+		monochromator->BT = 4 * monochromator->B0 * phi / square(x);
+	}
+
+	// Find citation for this equation and check if it works
+	// Calculate the kinematic reflectivity of material
+	double calculate_kinematic_reflectivity(struct monochromator_values* monochromator, 
+											struct neutron_values* neutron){
+		double sine_of_bragg_angle = sin(neutron->Bragg_angle);
+		double cosine_of_bragg_angle = cos(neutron->Bragg_angle);
+		double extinction_length =  monochromator->lattice_spacing/neutron->l*sqrt(4*PI/monochromator->Maier_Leibnitz_reflectivity);
+		
+		// Kinenatic reflectivity = QML*DHKL*sin(theta_B)**2/PI/cos(theta_B)
+		double kinematic_reflectivity = monochromator->Maier_Leibnitz_reflectivity;
+		kinematic_reflectivity *= monochromator->lattice_spacing;
+		kinematic_reflectivity *= square(sine_of_bragg_angle);
+		kinematic_reflectivity *= 1/PI/cosine_of_bragg_angle;
+		kinematic_reflectivity *= monochromator->Debye_Waller_factor;
+		// Primary extinction factor, using the approximation in G.E Bacon and R.D. Lowde, Acta Cryst. (1948). 1, 303
+		kinematic_reflectivity *= tanh(monochromator->domain_thickness/extinction_length)/monochromator->domain_thickness*extinction_length;
+		return kinematic_reflectivity;
+	}
+
+	// Calculate time of flight and probability through crystal
+	void calculate_tau_and_prob(struct monochromator_values* monochromator, struct neutron_values* neutron, int i){
+		double Q = calculate_kinematic_reflectivity(monochromator, neutron);
+		
+		double arg1 = (neutron->eps_zero+neutron->beta*neutron->max_tau*neutron->v_size)/monochromator->mos;
+		neutron->P[i] = 1-exp(-(Q/neutron->beta)*(normalCDF(arg1)-normalCDF(neutron->eps_zero/monochromator->mos)));
+
+		neutron->tau[i] = normalCDF(neutron->eps_zero/monochromator->mos);
+		neutron->tau[i]-= (neutron->beta/Q)*log(1-rand01()*neutron->P[i]);
+		neutron->tau[i] = inverse_of_normal_cdf(neutron->tau[i]);
+		neutron->tau[i]*= monochromator->mos/(neutron->ki_size*neutron->beta);
+		neutron->tau[i]-= neutron->eps_zero/(neutron->ki_size*neutron->beta);
+		neutron->tau[i]*= neutron->ki_size/neutron->v_size;
+		
+	}
+
+	// Update to final kf
+	void calculate_kf(struct monochromator_values* monochromator, struct neutron_values* neutron, int j){
+		double epsilon[3];
+		double epsilon_size;
+		double eps;
+		eps = neutron->eps_zero+neutron->tau[j]*neutron->beta*neutron->v_size;
+		// 	("%.13g, %.13g, %.13g, %.13g\n", neutron->eps_zero, neutron->beta, eps, neutron->P[j]);
+		vec_prod(epsilon[0],epsilon[1],epsilon[2],neutron->Ggamma[0],neutron->Ggamma[1],neutron->Ggamma[2],neutron->Gr[0],neutron->Gr[1],neutron->Gr[2]);
+		epsilon_size = sqrt(square(epsilon[0])+square(epsilon[1])+square(epsilon[2]));
+		neutron->kf_size = 0;
+		for (int i=0;i<3;i++){
+			neutron->kf[i] = neutron->ki[i];
+			neutron->kf[i] += monochromator->G0[i];
+			for (int k=0;k<3;k++){
+				neutron->kf[i] += neutron->r[k]*monochromator->lattice_spacing_gradient_field[i][k];
+			}
+			neutron->kf[i] += neutron->Gr_size*eps*epsilon[i]/epsilon_size+neutron->Ggamma[i];
+			neutron->kf_size += square(neutron->kf[i]);
+		}
+		neutron->kf_size = sqrt(neutron->kf_size);
+
+		for (int i=0;i<3;i++){
+			neutron->kf[i] *= neutron->ki_size/neutron->kf_size;
+		}
+	}
+
+	// Reflect neutron
+	void reflect_neutron(struct neutron_values* neutron, double* vx, double* vy, double* vz){
+			*vx = (neutron->kf[0])*K2V;
+			*vy = (neutron->kf[1])*K2V;
+			*vz = (neutron->kf[2])*K2V;
+	}
+
+	// Attenuation coefficient calculation
+	double calculate_attenuation_coefficient(struct monochromator_values* monochromator,
+										struct neutron_values* neutron){
+		double E = square(neutron->v_size)*VS2E; // Neutron energy in meV
+		// Get factor for single phonon cross section
+		
+		double Bernoulli_sequence[31] = {1,-0.5,0.166667,0,-0.033333,0,0.0238095,0,-0.033333,
+										0,0.0757576,0,-0.253114,0,1.16667,0,-7.09216,0,54.9712,
+										0,-529.124,0,6192.12,0,-86580.3,0,1.42551717e6,0,-2.7298231e7,
+										0,6.01580874e8};
+		double x;
+		if (monochromator->temperature_mono - 0.1 <= 0){
+			x = monochromator->debye_temperature/0.1;
+		}
+		else{
+			x = monochromator->debye_temperature/monochromator->temperature_mono;
+		} 
+		double R, Ifact, Xn;
+		if (x<6){
+			R = 0;
+			Ifact = 1;
+			Xn = 1/x;
+			for (int i=0; i<30; i++){
+				R += Bernoulli_sequence[i]*Xn/Ifact*(i + 2.5);
+				Xn *= x;
+				Ifact *= i + 1;
+			}
+		}
+		else R = 3.3/sqrt(x*x*x*x*x*x*x);
+
+		// Define boltzmann_constant in units of (meV/K)
+		double boltzmann_constant = 0.08617333262;
+		double DWMF =  1-exp(-(monochromator->B0+monochromator->BT)*monochromator->Constant_from_Freund_paper*E/1000);
+		// Set the cross sections, as written in freunds paper
+		monochromator->nuclear_capture_absorption = monochromator->incoherent_scattering_cross_section
+													+monochromator->absorption_for_1AA_Neutrons*neutron->l;
+
+		monochromator->multiple_phonon_absorption = monochromator->bound_atom_scattering_cross_section
+											*square(monochromator->atomic_number/(monochromator->atomic_number + 1))
+											*DWMF;
+
+		monochromator->single_phonon_absorption = 3*monochromator->bound_atom_scattering_cross_section/monochromator->atomic_number
+											* sqrt(boltzmann_constant * monochromator->debye_temperature/E) * R;
+
+		double attenuation_coefficient =  (monochromator->nuclear_capture_absorption
+										+ monochromator->single_phonon_absorption
+										+ monochromator->multiple_phonon_absorption)
+										/monochromator->volume * 100; // *100 to change to per mm?
+		return attenuation_coefficient;
+	}
+%}
+
+DECLARE
+%{
+    int neutron_counter;
+	int do_transmit;
+    double angle_range;
+    double curvature_x;
+
+	// Checking Values
+	double initial_v;
+	double initial_l;
+	double initial_E;
+
+    struct neutron_values neutron;
+    struct monochromator_values monochromator;
+%}
+
+INITIALIZE
+%{
+/////////////////////
+// ERROR FUNCTIONS //
+/////////////////////
+	if (radius_x <= 0)
+		exit(printf("G_approach_bent_perfect_crystal: %s: incorrect radius_x=%g\n", NAME_CURRENT_COMP, radius_x));
+	if (xthickness <= 0)
+		exit(printf("G_approach_bent_perfect_crystal: %s: invalid monochromator xthickness=%g\n", NAME_CURRENT_COMP, xthickness));
+	if (zwidth <= 0)
+		exit(printf("G_approach_bent_perfect_crystal: %s: invalid monochromator zwidth=%g\n", NAME_CURRENT_COMP, zwidth));
+
+/////////////////////////////
+// INITIALIZING PARAMETERS //
+/////////////////////////////
+	neutron_counter = 0;
+	do_transmit = 0;
+
+//////////////////////////
+// Monochromator values //
+//////////////////////////
+
+    // Initialize angles of the monochromator 
+	angle_range = atan(zwidth/(2*radius_x));
+
+    monochromator.max_angle = angle_range + PI;
+	monochromator.min_angle = -angle_range + PI;
+    
+    // Which type of monochromator
+    if (!radius_x && !mosaicity) {
+        monochromator.type = 0;
+    } else if (radius_x && !mosaicity) {
+        monochromator.type = 1;
+    } else if (!radius_x && mosaicity) {
+        monochromator.type = 2;
+    } else if (radius_x && mosaicity) {
+        monochromator.type = 3;
+    }
+    
+    // Read the designated plane of reflection, for use in the monochromator
+	enum crystal_plane plane = stringToEnum(&plane_of_reflection);
+    
+    // Set monochromator values
+	monochromator.length = zwidth;
+	monochromator.height = yheight;
+	monochromator.thickness = xthickness;
+	monochromator.radius_horizontal = radius_x;
+	monochromator.domain_thickness = domainthickness;
+	monochromator.lattice_spacing = crystal_table[plane][0];
+	monochromator.Maier_Leibnitz_reflectivity = crystal_table[plane][1]*100; // Convert to SI and Angstrom
+	monochromator.bound_atom_scattering_cross_section = crystal_table[plane][2];
+	monochromator.absorption_for_1AA_Neutrons = crystal_table[plane][3];
+	monochromator.incoherent_scattering_cross_section = crystal_table[plane][4];
+	monochromator.volume = crystal_table[plane][5];
+	monochromator.atomic_number = crystal_table[plane][6];
+	monochromator.debye_temperature = crystal_table[plane][7];
+	monochromator.Constant_from_Freund_paper = crystal_table[plane][9];
+	monochromator.poisson_ratio = crystal_table[plane][9];
+
+	calculate_B0_and_BT(&monochromator);
+	monochromator.Debye_Waller_factor = exp(-(monochromator.B0 + monochromator.BT)/2/square(monochromator.lattice_spacing));
+
+    // Set mosaicity
+    if (monochromator.type == 2 || monochromator.type == 3){
+        //Input mosaicity is in arc min. Convert to radians, then to sigma from FWHM
+        monochromator.mos = mosaicity*MIN2RAD*FWHM2RMS; 
+    }
+    else {
+        monochromator.mos = 0; 
+    }   
+
+	angle_to_cut_horizontal *= DEG2RAD;
+	angle_to_cut_vertical *= DEG2RAD;
+
+	monochromator.G_size_zero = 2*PI/monochromator.lattice_spacing;
+	
+	monochromator.G0[0] = monochromator.G_size_zero*cos(angle_to_cut_horizontal)*cos(angle_to_cut_vertical);
+	monochromator.G0[1] = monochromator.G_size_zero*sin(angle_to_cut_vertical);
+	monochromator.G0[2] = monochromator.G_size_zero*sin(angle_to_cut_horizontal)*cos(angle_to_cut_vertical);
+
+	// Initialize lattice_spacing_gradient_field 
+	double curvature = 1/radius_x;
+	monochromator.lattice_spacing_gradient_field[0][0] = -monochromator.poisson_ratio*cos(angle_to_cut_horizontal)*monochromator.G_size_zero*curvature;
+	monochromator.lattice_spacing_gradient_field[0][1] = 0;
+	monochromator.lattice_spacing_gradient_field[0][2] = sin(angle_to_cut_horizontal)*monochromator.G_size_zero*curvature;
+	monochromator.lattice_spacing_gradient_field[1][0] = 0;
+	monochromator.lattice_spacing_gradient_field[1][1] = 0;
+	monochromator.lattice_spacing_gradient_field[1][2] = 0;
+	monochromator.lattice_spacing_gradient_field[2][0] = sin(angle_to_cut_horizontal)*monochromator.G_size_zero*curvature;
+	monochromator.lattice_spacing_gradient_field[2][1] = 0;
+	monochromator.lattice_spacing_gradient_field[2][2] = -cos(angle_to_cut_horizontal)*monochromator.G_size_zero*curvature;
+
+	
+
+%}
+
+TRACE
+%{
+	// Set the neutron values for the new neutron
+    set_neutron_values(&neutron,x,y,z,vx,vy,vz);
+	neutron.direction = 1;
+	double weight_init = p;
+	if (weight_init == 0.0){
+		ABSORB;
+	}
+
+	// Find the intersection 
+    int intersected = calc_intersection(&monochromator,&neutron);
+	double path_length = 0;
+	
+	// If not intersected at all, the top of the bottom, absorb it. Not sure if this is actually neccisary, but i will keep it in case
+	if (intersected == 0 || ((int)intersected)%8 == 2 || ((int)intersected)%8 == 4){
+		ABSORB;
+	}
+    PROP_DT(neutron.entry_time);
+	set_neutron_values(&neutron,x,y,z,vx,vy,vz);
+	// Is the neutron in the area of the monochromator?
+	double angle_on_inner_cylinder = PI - atan(neutron.r[2]/monochromator.radius_horizontal);
+	if ((monochromator.max_angle >= angle_on_inner_cylinder) && (angle_on_inner_cylinder >= monochromator.min_angle)){
+		// If yes, then it can possibly be scattered
+		neutron.max_tau = neutron.exit_time-neutron.entry_time;
+		for (int i = 0; i < 1; i++){	
+
+			calculate_G(&monochromator,&neutron);
+			calculate_epszero_and_beta(&monochromator,&neutron);
+			// printf("%f, %f\n",neutron.eps_zero,neutron.beta);
+			calculate_tau_and_prob(&monochromator,&neutron,i);
+
+			if ((neutron.tau[i] < neutron.max_tau) && (neutron.tau[i] > 0) && (neutron.P[i] > pow(10,-6))){ // Reflect
+				
+				PROP_DT(neutron.tau[i]);
+				p *= neutron.P[i];
+				if (p == 0.0) ABSORB;
+
+				// Update kf and scatter
+				calculate_kf(&monochromator,&neutron,i);
+				SCATTER;
+				reflect_neutron(&neutron, &vx, &vy, &vz);
+				set_neutron_values(&neutron,x,y,z,vx,vy,vz);
+
+				// Calculate intersect with inner diameter again 
+				path_length += neutron.tau[i]*neutron.v_size;
+				
+
+			}else {
+				// Path length is equal to distance traveled through
+				path_length += neutron.max_tau*neutron.v_size;
+				break;
+			}
+			intersected = calc_intersection(&monochromator,&neutron);
+			if (i % 2 == 0){
+				neutron.max_tau = neutron.entry_time;
+				
+			} else {
+				neutron.max_tau = neutron.exit_time;
+			}
+			neutron.direction *= -1;
+		}
+		// Attenuate
+		double attenuation_coefficient = calculate_attenuation_coefficient(&monochromator, &neutron)*10;
+		p *= exp(-attenuation_coefficient*path_length);
+	}else {
+		/* restore neutron state when no interaction */
+		RESTORE_NEUTRON(INDEX_CURRENT_COMP, x, y, z, vx, vy, vz, t, sx, sy, sz, p);
+    }
+    
+    
+%}
+
+FINALLY
+%{
+%}
+
+MCDISPLAY
+%{
+%}
+
+END
