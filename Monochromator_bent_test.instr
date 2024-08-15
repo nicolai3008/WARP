@@ -8,183 +8,97 @@
 * %INSTRUMENT_SITE: PSI
 *
 * A simple instrument file to test and debug the Monochromator_bent.comp
-* Currently not working perfectly, as there is a shadow around the reflected
-* beam, at the detector position, but will be fixed soon.
+* Should result in rocking curves and spatial profiles from article by
+* Jan Šaroun. "Random-walk algorithm for the simulation of neutron 
+* diffraction in deformed mosaic crystals",Nucl. Instr. and Meth. 
+* A 529 (2004), 162-165.
 *
 * %D
 * Monochroamtor_bent test
-* thickness [m] 	Thickness of monochromator slab
-* sample_x [m]		Width of source
-* sample_y [m]		Height of source
-* L0_m [m]		Length from source to monochromator
-* L1_m [m]		Length from monochromator to slit
-* d_E [meV]		Energy width of source
-* E_m [meV]		Central energy of source, and reflected energy of
-*			monochromator
-* mos [arcmin]		Mosaicity of monochromator
-* det_rot [deg]		Rotation of the detector with respect to the angle
-* 			from the monochromator
-* focus [deg]		FWHM of source divergence
+* R [m]				// Radius of the monochromator
+* mos [arcmin]			// Mosaicity of the crystal
+* mono_rotation [arcmin]	// Rotation of the monochromator, relative to the z axis.
 *
 * %L
 * <WARP_Github/https://github.com/nicolai3008/WARP>
 *
 * %E
 *******************************************************************************/
-DEFINE INSTRUMENT template_simple(thickness=0.002, sample_x=0.01, sample_y=0.01, L0_m = 0.9, L1_m = 1, d_E = 0.5, E_m = 5, mos=60, det_rot=0, focus=4)
 
-DECLARE
+DEFINE INSTRUMENT Test_Monochromator_bent (
+double mono_rotation = 0, 
+double mos = 0,
+double R = 10 
+)
+
+DECLARE 
 %{
-// What energies to simulate
-double A5;
-double A6;
-double d_SI111;
-double l_m;
-double L0_min;
-
-double width;
-double height;
-double R_Cs;
-
-// Functions
-double R_C(double L0, double L1, double theta){
-    return (L0+L1)/(2*sin((theta)*DEG2RAD));
-};
-double TT_Bragg(double D, double L){
-    return asin((L)/(D*2))*RAD2DEG*2;
-};
-double L_Bragg(double D, double T){
-    return D*sin(T*DEG2RAD)*2;
-};
-double en2la(double E){
-    return 9.045/(sqrt(E));
-};
-double la2en(double l){
-    return 81.82/(l*l);
-};
-
-int scat=0;
+int reflections;
 %}
 
-USERVARS
+INITIALIZE 
 %{
+// Start of initialize for generated Test_Monochromator_bent
 %}
 
-INITIALIZE
+TRACE 
+COMPONENT Source = Source_gen(
+ dist = 10, focus_xw = 0.001,
+ focus_yh = 0.01, lambda0 = 1.5,
+ dlambda = 7.5E-06, I1 = 7.95775E+12,
+ yheight = 0.01, xwidth = 0.001,
+ T1 = 315)
+AT (0,0,0) ABSOLUTE
+
+COMPONENT Slit = Slit(
+ xwidth = 0.001, yheight = 0.01)
+AT (0,0,10) RELATIVE Source
+
+COMPONENT entry_monitor = PSD_monitor(
+ nx = 200, ny = 200,
+ filename = "entry_monitor", xwidth = 0.02,
+ yheight = 0.02, restore_neutron = 1)
+AT (0,0,0) RELATIVE Slit
+
+COMPONENT monochromator_arm = Arm()
+AT (0,0,10.15) RELATIVE Source
+ROTATED (0,43.5337+mono_rotation/60,0) RELATIVE Source
+
+COMPONENT Monochromator = Monochromator_bent(
+ zwidth = 0.07, yheight = 0.012,
+ xthickness = 0.008, radius_x = R,
+ plane_of_reflection = "Ge511", angle_to_cut_horizontal = -19.47,
+ angle_to_cut_vertical = 0, mosaicity = mos,
+ verbose = 0)
+AT (0,0,0) RELATIVE monochromator_arm
+ROTATED (0,-19.47,0) RELATIVE monochromator_arm
+
+COMPONENT arm_after_monochromator = Arm()
+AT (0,0,0) RELATIVE monochromator_arm
+ROTATED (0,43.533702255651555,0) RELATIVE monochromator_arm
+
+COMPONENT monitor_arm = Arm()
+AT (0,0,0) RELATIVE arm_after_monochromator
+ROTATED (0,0,0) RELATIVE arm_after_monochromator
+
+COMPONENT one_D_mon = PSDlin_diff_monitor(
+    nx=801,
+    filename="Position.x",
+    xwidth=0.1,
+    yheight=0.02,
+    restore_neutron=1)
+AT (0, 0, 0.1) RELATIVE monitor_arm
+
+COMPONENT PSD_exit_monitor = PSD_monitor(
+ nx = 200, ny = 200,
+ filename = "det2d.dat", xwidth = 0.1,
+ yheight = 0.02, restore_neutron = 1)
+AT (0,0,0.5) RELATIVE monitor_arm
+
+
+FINALLY 
 %{
-d_SI111 = 3.13536;
-l_m = en2la(E_m);
-A6 = TT_Bragg(d_SI111, l_m);
-A5 = A6/2;
-
-width = (-2*L0_m*tan(2*DEG2RAD))/(tan(2*DEG2RAD)*cos(DEG2RAD*A5)-sin(DEG2RAD*A5));
-height = 2*tan(2*DEG2RAD)*(L0_m-cos(DEG2RAD*A5)*width/2);
-printf("%f, %f\n",width,height);
-R_Cs =  R_C(L0_m,L1_m,A5);
-%}
-
-TRACE
-
-COMPONENT origin = Progress_bar()
-AT (0, 0, 0) RELATIVE ABSOLUTE
-
-// Source should be white source with variable dimensions
-COMPONENT source = Source_div(
-    xwidth=sample_x, 
-    yheight=sample_y, 
-    focus_aw=focus, 
-    focus_ah=focus, 
-    E0=E_m, 
-    dE=d_E)
-AT (0, 0, 0) RELATIVE origin
-
-
-COMPONENT psd_test = PSD_monitor(
-    filename="psd_test", 
-    xmin=-0.1, 
-    xmax=0.1, 
-    ymin=-0.1, 
-    ymax=0.1, 
-    restore_neutron=1)
-AT (0, 0, 0.5) RELATIVE PREVIOUS
-
-COMPONENT e_monitor_0 = E_monitor(
-    nE=100, 
-    filename="Energy_0", 
-    xwidth=1, 
-    yheight=1, 
-    Emin=4, 
-    Emax=6,
-    restore_neutron=1)
-AT (0, 0, 0.001) RELATIVE PREVIOUS
-
-COMPONENT A_Pos = Arm()
-AT (0, 0, L0_m) RELATIVE PREVIOUS
-
-
-COMPONENT Mono_1 = Monochromator_bent(
-	zwidth = width,
-	yheight = height,
-	xthickness = thickness,
-	plane_of_reflection = "Si111",
-	radius_x = R_Cs,
-	angle_to_cut_horizontal = 0,
-	angle_to_cut_vertical = 0,
-	mosaicity = mos,
-    verbose = 0)
-AT (0, 0, 0) RELATIVE A_Pos
-ROTATED (0, A5, 0) RELATIVE A_Pos
-
-
-COMPONENT A6_pos = Arm()
-AT (0, 0, 0) RELATIVE A_Pos
-ROTATED (0, A6, 0) RELATIVE A_Pos
-
-COMPONENT psd_monitor_slit = PSD_monitor(
-    nx=1001, 
-    ny=1001, 
-    xwidth=1, 
-    yheight=1,
-    restore_neutron=1)
-AT (0, 0, L1_m) RELATIVE PREVIOUS
-
-
-COMPONENT slit_1 = Slit(
-    xmin=-0.02,
-    xmax=0.02,
-    ymin=-0.04,
-    ymax=0.04)
-AT (0, 0, 0) RELATIVE PREVIOUS
-
-
-COMPONENT e_monitor = E_monitor(
-    nE=250, 
-    filename="Energy", 
-    xwidth=1, 
-    yheight=1, 
-    Emin=E_m-1, 
-    Emax=E_m+1)
-AT (0, 0, L1_m) RELATIVE PREVIOUS
-
-COMPONENT psd_monitor_end = PSD_monitor(
-    nx=1001, 
-    ny=1001, 
-    xwidth=0.4, 
-    yheight=0.4,
-    restore_neutron=1)
-AT (0, 0, 0) RELATIVE PREVIOUS
-
-COMPONENT E_PSD_mon_end = Monitor_nD(
-    options = "x bins=601 energy limits=[3 7] bins=201",
-    filename="E_end", 
-    xwidth=0.4, 
-    yheight=0.02)
-AT (0, 0, 0) RELATIVE PREVIOUS
-
-
-FINALLY
-%{
+// Start of finally for generated Test_Monochromator_bent
 %}
 
 END
- 
