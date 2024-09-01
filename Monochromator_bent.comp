@@ -9,9 +9,9 @@
 *
 * %I
 * Written by: Nicolai Lindaa Amin <s194113@dtu.dk>
-* Based on more complicated Monochromator_bent by Daniel Lomholt Christensen
-* implemented for PSI WARP instrument proposal. Once Monochromator_bent is done, this
-* component should be replaced as this is a simple budget version of that component.
+* Based matematics by Jan Saruon, to implement mosaic scattering off of
+* a curved monochromator. Takes inspiration from Daniel Lomholts versionn.
+* Written for PSI WARP instrument proposal.
 * 
 *
 * Date: 15 July 2024
@@ -26,7 +26,7 @@
 * is desired, it should just be inserted in the ROTATED parameter around
 * the y-axis.
 * Instruments that showcase the use of this component is the 
-* "Test_monochromator_bent.instr", and the "PSI_WARP.instr" under the examples folder.
+* "Monochromator_bent_test.instr", and the "PSI_WARP.instr" under the examples folder.
 * WARP showcases its complex use in a real instrument, while Test_monochromator_bent
 * makes a simple show of its capabilities.
 *
@@ -43,7 +43,8 @@
 * angle_to_cut_horizontal [degrees]  	Angle between cut and normal of crystal slab, horizontally
 * angle_to_cut_vertical [degrees] 		Angle between cut and normal of crystal slab, vertically
 * mosaicity [arc minutes]               Gaussian mosaicity of the crystal. 
-* domainthickness [micro meter]			Thickness of the crystal domains.
+* domainthickness [micro meter]			Thickness of the crystal domains. Used to define kinematic reflectivity
+* temperature [K] 						Temperature of monochromator. Used for attenuation
 * verbose: [0]							Verbosity of the monochromator. Used for debugging. 
 *
 * %E
@@ -67,8 +68,6 @@ OUTPUT PARAMETERS ()
 SHARE
 %{
 	#include <string.h>
-
-// #TODO: Implement for no mosaicity
 
 ////////////////////////////
 // Mathematical Functions //
@@ -484,6 +483,7 @@ SHARE
 	// Calculate scattering vector G using Saroun eq. 3
 	void calculate_G(struct monochromator_values* monochromator, struct neutron_values* neutron){
 		neutron->Gr_size = 0;
+		neutron->Grad_G_size = 0;
 		double normalize = 0;
 		// Curvature effect calculations
 		for (int i=0; i<3; i++){
@@ -493,10 +493,12 @@ SHARE
 				neutron->Gr[i] += monochromator->lattice_spacing_gradient_field[i][j]*neutron->r[j];
 			}
 			neutron->Grad_G[i] = (neutron->Gr[i] - monochromator->G0[i])*neutron->direction;
+			neutron->Grad_G_size += square(neutron->Grad_G[i]);
 			neutron->Gr[i] *= neutron->direction;
 		}
 		// Set size for scattering vector
 		neutron->Gr_size = sqrt(neutron->Gr_size);
+		neutron->Grad_G_size = sqrt(neutron->Grad_G_size);
 
 
 		// Define gamma vector, which has to be out of the ki-G plane
@@ -533,11 +535,11 @@ SHARE
 		double G[3];
 		double temp_eps0 = 0;
 		double temp_beta = 0;
-		G[0] = (neutron->ki[0]+neutron->Gr[0]*neutron->direction);
-		G[1] = (neutron->ki[1]+neutron->Gr[1]*neutron->direction);
-		G[2] = (neutron->ki[2]+neutron->Gr[2]*neutron->direction);
+		G[0] = (neutron->ki[0]+monochromator->G0[0]*neutron->direction+neutron->Ggamma[0]);
+		G[1] = (neutron->ki[1]+monochromator->G0[1]*neutron->direction+neutron->Ggamma[1]);
+		G[2] = (neutron->ki[2]+monochromator->G0[2]*neutron->direction+neutron->Ggamma[2]);
 		
-		temp_eps0 = (square(G[1])+square(G[0])+square(G[2]) - square(neutron->ki_size));
+		temp_eps0 = (square(G[1])+square(G[0])+square(G[2]) + square(neutron->Grad_G_size) - square(neutron->ki_size));
 		double denominator = 2*neutron->Gr_size*neutron->ki_size*cos(neutron->Bragg_angle);
 		neutron->eps_zero = -temp_eps0/denominator*neutron->direction;
 		
@@ -548,9 +550,6 @@ SHARE
 				Gk[i] += monochromator->lattice_spacing_gradient_field[i][j]*neutron->ki[j]*neutron->direction;
 			}	
 		}
-		G[0] = (neutron->ki[0]+monochromator->G0[0]*neutron->direction+neutron->Ggamma[0]);
-		G[1] = (neutron->ki[1]+monochromator->G0[1]*neutron->direction+neutron->Ggamma[1]);
-		G[2] = (neutron->ki[2]+monochromator->G0[2]*neutron->direction+neutron->Ggamma[2]);
 		
 		temp_beta = (G[0])*Gk[0]
 					+ (G[1])*Gk[1]
