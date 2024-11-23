@@ -1,0 +1,16 @@
+COMPONENT Analyzer_{Number} = Monochromator_bent(
+    zwidth = {width},
+    yheight = {height},
+    xthickness = {mm},
+    radius_x = {radius},
+    plane_of_reflection = {reflection},
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = {offcut},
+    mosaicity = {mosaicity},
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, {Dist}) RELATIVE source
+ROTATED (0, {Angle}, 0) RELATIVE source
+GROUP Analyzer

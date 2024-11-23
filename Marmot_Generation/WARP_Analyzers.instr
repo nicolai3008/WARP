@@ -1,0 +1,39 @@
+/*******************************************************************************
+*         McStas instrument definition URL=http://mcstas.risoe.dk
+*
+* Instrument: WARP_
+*
+* %Identification
+* Written by: Nicolai Amin (nicolai.amin@psi.dk)
+* Date: DATE
+* Origin: PSI
+* %INSTRUMENT_SITE: PSI
+*
+* WARP Analysers: Generated in python with the following parameters:
+* 
+*
+* %Description
+* 
+*
+* %End
+*******************************************************************************/
+DEFINE INSTRUMENT WARP_Analyzers()
+
+DECLARE
+%{
+
+}%
+
+INITIALIZE
+%{
+
+%}
+
+TRACE
+
+COMPONENT sample = Arm()
+  AT (0,0,0) RELATIVE source
+
+ANALYZERS
+
+END

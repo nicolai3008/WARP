@@ -1,0 +1,122 @@
+McStas simulation description file for template_simple.
+Date:    Mon Nov 04 14:54:50 2024
+Program: McStas 3.4 - Sep. 19, 2023
+
+begin instrument: template_simple
+  File: Test/mccode
+  Source: WARP.instr
+  Parameters:  focus(double) E_m(double) d_E(double) thickness(double) sample_x(double) sample_y(double) L0(double) L1(double) Ld(double) det_rot(double) slit_x(double) slit_y(double)
+  Trace_enabled: yes
+  Default_main: yes
+  Embedded_runtime: yes
+end instrument
+
+begin simulation: Test
+  Format: McCode with text headers
+  URL: http://www.mccode.org
+  Creator: McStas 3.4 - Sep. 19, 2023
+  Instrument: WARP.instr
+  Ncount: 10000000
+  Trace: no
+  Gravitation: no
+  Seed: -1595513842
+  Directory: Test
+  Param: focus=4
+  Param: E_m=5.325
+  Param: d_E=1.375
+  Param: thickness=0.002
+  Param: sample_x=0.005
+  Param: sample_y=0.015
+  Param: L0=1.1749
+  Param: L1=2.19885
+  Param: Ld=0.537593
+  Param: det_rot=3.02919
+  Param: slit_x=0.04
+  Param: slit_y=0.04
+end simulation
+
+begin data
+  Date: Mon Nov 04 15:03:12 2024 (1730728992)
+  type: array_2d(90, 90)
+  Source: template_simple (WARP.instr)
+  component: psd_test
+  position: 0 0 0.5
+  title: PSD monitor
+  Ncount: 10000000
+  filename: psd_test.dat
+  statistics: X0=0.000322133; dX=1.09894; Y0=4.14222e-005; dY=0.648959;
+  signal: Min=0; Max=4.105e-005; Mean=7.75585e-007;
+  values: 0.00628224 1.98662e-006 1e+007
+  xvar: X 
+  yvar: Y 
+  xlabel: X position [cm]
+  ylabel: Y position [cm]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -10 10 -10 10
+  variables: I I_err N
+end data
+
+begin data
+  Date: Mon Nov 04 15:03:12 2024 (1730728992)
+  type: array_1d(501)
+  Source: template_simple (WARP.instr)
+  component: e_monitor
+  position: 0 0 0.5
+  title: Energy monitor
+  Ncount: 10000000
+  filename: E_start.dat
+  statistics: X0=5.32518; dX=0.793976;
+  signal: Min=0; Max=1.40929e-005; Mean=1.25394e-005;
+  values: 0.00628224 1.98662e-006 1e+007
+  xvar: E
+  yvar: (I,I_err)
+  xlabel: Energy [meV]
+  ylabel: Intensity
+  xlimits: 3.8125 6.8375
+  variables: E I I_err N
+end data
+
+begin data
+  Date: Mon Nov 04 15:03:12 2024 (1730728992)
+  type: array_2d(1001, 1001)
+  Source: template_simple (WARP.instr)
+  component: psd_monitor_end
+  position: 2.19885 1.34636e-016 1.1749
+  title: PSD monitor
+  Ncount: 10000000
+  filename: psd_monitor_end.dat
+  statistics: X0=1.91936; dX=12.4638; Y0=-0.0034995; dY=3.71708;
+  signal: Min=0; Max=7.4662e-010; Mean=3.62902e-011;
+  values: 3.63629e-005 4.20256e-008 1.17948e+006
+  xvar: X 
+  yvar: Y 
+  xlabel: X position [cm]
+  ylabel: Y position [cm]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -26.8796 26.8796 -25 25
+  variables: I I_err N
+end data
+
+begin data
+  Date: Mon Nov 04 15:03:13 2024 (1730728993)
+  type: array_2d(1001, 1201)
+  Source: template_simple (WARP.instr)
+  component: E_PSD_mon_end
+  position: 2.19885 1.34636e-016 1.1749
+  title:  Intensity Position Energy Monitor (Square) per bin
+  Ncount: 10000000
+  filename: E_end.x_E
+  statistics: X0=0.0191936; dX=0.124638; Y0=5.09042; dY=0.678015;
+  signal: Min=0; Max=7.77722e-009; Mean=3.02469e-011;
+  values: 3.63629e-005 4.20256e-008 1.17948e+006
+  xvar: x 
+  yvar: En
+  xlabel: x [m]
+  ylabel: Energy [meV]
+  zvar: I
+  zlabel: Signal per bin
+  xylimits: -0.268796 0.268796 1 7
+  variables: I I_err N
+end data

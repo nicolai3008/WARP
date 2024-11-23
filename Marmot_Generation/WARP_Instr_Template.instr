@@ -1,0 +1,127 @@
+/*******************************************************************************
+* Instrument: WARP Proposal Instrument Backend
+*
+* %I
+* Written by: Nicolai Amin (nicolai.amin@psi.ch)
+* Date: 09/07 - 2024
+* Origin: PSI - LSN
+* %INSTRUMENT_SITE: 
+*
+* This is a first draft for the WARP instrument proposal, as created by
+* Daniel Gabriel Mazzone (daniel.mazzone@psi.ch) and Jakob Lass 
+* (jakob.lass@psi.ch). This proposal will include a new component which utilizes
+* the marmot geometery. The instrument only looks at the backend of the instrument
+* from the sample to the detector, as the guide part of the instrument is not 
+* fully planned out yet.
+*
+* %D
+* instrument description
+*
+* Example: parameters=values
+*
+* %P
+* Par1: [unit] Parameter1 description
+*
+* %E
+*******************************************************************************/
+DEFINE INSTRUMENT template_simple(
+    focus=4, 
+    double E_m =  
+    double d_E =  
+    double thickness=0.002, 
+    double sample_x=0.005, 
+    double sample_y=0.015, 
+    double L0 =  
+    double L1 =  
+    double Ld =  
+    double det_rot =  
+    slit_x=0.04,
+    slit_y=0.04
+)
+
+DECLARE
+%{
+int scat=0;
+%}
+
+USERVARS
+%{
+%}
+
+INITIALIZE
+%{
+%}
+
+TRACE
+
+COMPONENT origin = Progress_bar()
+AT (0, 0, 0) RELATIVE ABSOLUTE
+
+// Source should be white source with variable dimensions
+COMPONENT source = Source_div(
+    xwidth=sample_y, 
+    yheight=sample_x, 
+    focus_aw=4, 
+    focus_ah=2.5, 
+    E0=E_m, 
+    dE=d_E)
+AT (0, 0, 0) RELATIVE origin
+
+COMPONENT psd_test = PSD_monitor(
+    filename="psd_test", 
+    xmin=-0.1, 
+    xmax=0.1, 
+    ymin=-0.1, 
+    ymax=0.1, 
+    restore_neutron=1)
+AT (0, 0, 0.5) RELATIVE source
+
+COMPONENT e_monitor = E_monitor(
+    nE=501, 
+    filename="E_start", 
+    xwidth=1, 
+    yheight=1, 
+    Emin=E_m-d_E*1.1, 
+    Emax=E_m+d_E*1.1,
+    restore_neutron=1)
+AT (0, 0, 0.5) RELATIVE source
+
+
+// Import of generated analyzers from python
+
+COMPONENT rotator = Arm()
+AT (0, 0, 0) RELATIVE source
+ROTATED (0, 0, -90) RELATIVE source
+
+COMPONENT detector_pos = Arm()
+AT (0, L1,L0) RELATIVE rotator
+
+COMPONENT detector = Arm()
+AT (0,0,0) RELATIVE detector_pos
+ROTATED (90+det_rot,0,90) RELATIVE detector_pos
+
+COMPONENT psd_monitor_end = PSD_monitor(
+    nx=1001, 
+    ny=1001, 
+    xwidth=Ld, 
+    yheight=0.5,
+    restore_neutron=1)
+WHEN (scat == 1)
+AT (0, 0, 0) RELATIVE detector
+
+COMPONENT E_PSD_mon_end = Monitor_nD(
+    options = 
+    filename="E_end", 
+    xwidth=Ld, 
+    yheight=0.5,
+	restore_neutron=1)
+WHEN (scat == 1)
+AT (0, 0, 0) RELATIVE detector
+
+
+
+FINALLY
+%{
+%}
+
+END

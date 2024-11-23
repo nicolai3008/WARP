@@ -1,0 +1,1094 @@
+/*******************************************************************************
+* Instrument: WARP Proposal Instrument Backend
+*
+* %I
+* Written by: Nicolai Amin (nicolai.amin@psi.ch)
+* Date: 09/07 - 2024
+* Origin: PSI - LSN
+* %INSTRUMENT_SITE: 
+*
+* This is a first draft for the WARP instrument proposal, as created by
+* Daniel Gabriel Mazzone (daniel.mazzone@psi.ch) and Jakob Lass 
+* (jakob.lass@psi.ch). This proposal will include a new component which utilizes
+* the marmot geometery. The instrument only looks at the backend of the instrument
+* from the sample to the detector, as the guide part of the instrument is not 
+* fully planned out yet.
+*
+* %D
+* instrument description
+*
+* Example: parameters=values
+*
+* %P
+* Par1: [unit] Parameter1 description
+*
+* %E
+*******************************************************************************/
+DEFINE INSTRUMENT template_simple(
+    focus=4, 
+    double E_m = 5.325,
+    double d_E = 1.375,
+    double thickness=0.002, 
+    double sample_x=0.005, 
+    double sample_y=0.015, 
+    double L0 = 1.1749,
+    double L1 = 2.1988499999999997,
+    double Ld = 0.5375925315701473,
+    double det_rot = 3.0291893730987205,
+    slit_x=0.04,
+    slit_y=0.04
+)
+
+DECLARE
+%{
+int scat=0;
+%}
+
+USERVARS
+%{
+%}
+
+INITIALIZE
+%{
+%}
+
+TRACE
+
+COMPONENT origin = Progress_bar()
+AT (0, 0, 0) RELATIVE ABSOLUTE
+
+// Source should be white source with variable dimensions
+COMPONENT source = Source_div(
+    xwidth=sample_y, 
+    yheight=sample_x, 
+    focus_aw=4, 
+    focus_ah=2.5, 
+    E0=E_m, 
+    dE=d_E)
+AT (0, 0, 0) RELATIVE origin
+
+COMPONENT psd_test = PSD_monitor(
+    filename="psd_test", 
+    xmin=-0.1, 
+    xmax=0.1, 
+    ymin=-0.1, 
+    ymax=0.1, 
+    restore_neutron=1)
+AT (0, 0, 0.5) RELATIVE source
+
+COMPONENT e_monitor = E_monitor(
+    nE=501, 
+    filename="E_start", 
+    xwidth=1, 
+    yheight=1, 
+    Emin=E_m-d_E*1.1, 
+    Emax=E_m+d_E*1.1,
+    restore_neutron=1)
+AT (0, 0, 0.5) RELATIVE source
+
+
+// Import of generated analyzers from python
+COMPONENT Analyzer_0 = Monochromator_bent(
+    zwidth = 0.045186153053214745,
+    yheight = 0.025256242964165475,
+    xthickness = 0.0005,
+    radius_x = 2.442094641246816,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.5800884582982309) RELATIVE source
+ROTATED (0, 34.50078023652336, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_1 = Monochromator_bent(
+    zwidth = 0.04656520220403678,
+    yheight = 0.025634711938996,
+    xthickness = 0.0005,
+    radius_x = 2.480458519804657,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.5900884582982309) RELATIVE source
+ROTATED (0, 34.739608321525225, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_2 = Monochromator_bent(
+    zwidth = 0.05153642294323662,
+    yheight = 0.025941422423863977,
+    xthickness = 0.0005,
+    radius_x = 2.504311157624173,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6000884582982309) RELATIVE source
+ROTATED (0, 34.97302867718735, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_3 = Monochromator_bent(
+    zwidth = 0.0548909655519918,
+    yheight = 0.02624997411290457,
+    xthickness = 0.0005,
+    radius_x = 2.5092331783495223,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6100884582982309) RELATIVE source
+ROTATED (0, 35.20433658263342, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_4 = Monochromator_bent(
+    zwidth = 0.05740910355091564,
+    yheight = 0.026589164467988584,
+    xthickness = 0.0005,
+    radius_x = 2.527981711977253,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6200884582982309) RELATIVE source
+ROTATED (0, 35.438817405922826, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_5 = Monochromator_bent(
+    zwidth = 0.06144350178367934,
+    yheight = 0.02694414833540672,
+    xthickness = 0.0005,
+    radius_x = 2.5742328029536248,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6300884582982309) RELATIVE source
+ROTATED (0, 35.67618426233606, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_6 = Monochromator_bent(
+    zwidth = 0.06391907703861957,
+    yheight = 0.02727198937355823,
+    xthickness = 0.0005,
+    radius_x = 2.5825867906391307,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6400884582982309) RELATIVE source
+ROTATED (0, 35.909330306732805, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_7 = Monochromator_bent(
+    zwidth = 0.06715434288061861,
+    yheight = 0.027587314734483063,
+    xthickness = 0.0005,
+    radius_x = 2.5898657643794,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6500884582982309) RELATIVE source
+ROTATED (0, 36.14234958070264, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_8 = Monochromator_bent(
+    zwidth = 0.07227180425245408,
+    yheight = 0.027904412222491095,
+    xthickness = 0.0005,
+    radius_x = 2.6161644898079635,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6600884582982309) RELATIVE source
+ROTATED (0, 36.37646129104227, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_9 = Monochromator_bent(
+    zwidth = 0.07504378187172768,
+    yheight = 0.028237260558690767,
+    xthickness = 0.0005,
+    radius_x = 2.6294769277750336,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.6700884582982309) RELATIVE source
+ROTATED (0, 36.61112439107199, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_10 = Monochromator_bent(
+    zwidth = 0.07621584471994772,
+    yheight = 0.028627252374239767,
+    xthickness = 0.0005,
+    radius_x = 2.663728902910889,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.680088458298231) RELATIVE source
+ROTATED (0, 36.848848954561525, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_11 = Monochromator_bent(
+    zwidth = 0.0792736809977705,
+    yheight = 0.02900427151033862,
+    xthickness = 0.0005,
+    radius_x = 2.7033831580401935,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.690088458298231) RELATIVE source
+ROTATED (0, 37.0857658084779, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_12 = Monochromator_bent(
+    zwidth = 0.07885720278248978,
+    yheight = 0.029450552243892078,
+    xthickness = 0.0005,
+    radius_x = 2.7510739791690146,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.700088458298231) RELATIVE source
+ROTATED (0, 37.32525975037311, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_13 = Monochromator_bent(
+    zwidth = 0.07993738527728973,
+    yheight = 0.029896654869128132,
+    xthickness = 0.0005,
+    radius_x = 2.803575207125065,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.710088458298231) RELATIVE source
+ROTATED (0, 37.564246303351275, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_14 = Monochromator_bent(
+    zwidth = 0.08106362046918529,
+    yheight = 0.03028902926957882,
+    xthickness = 0.0005,
+    radius_x = 2.8265116461070354,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.720088458298231) RELATIVE source
+ROTATED (0, 37.801201037118304, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_15 = Monochromator_bent(
+    zwidth = 0.08064847614150639,
+    yheight = 0.030735321475835346,
+    xthickness = 0.0005,
+    radius_x = 2.8605208792572774,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.730088458298231) RELATIVE source
+ROTATED (0, 38.03983478578341, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_16 = Monochromator_bent(
+    zwidth = 0.08207365739332309,
+    yheight = 0.031181469483854956,
+    xthickness = 0.0005,
+    radius_x = 2.897429934745591,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.740088458298231) RELATIVE source
+ROTATED (0, 38.27840680026829, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_17 = Monochromator_bent(
+    zwidth = 0.083172953001956,
+    yheight = 0.03157530493878471,
+    xthickness = 0.0005,
+    radius_x = 2.910458315461202,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.750088458298231) RELATIVE source
+ROTATED (0, 38.51593235684239, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_18 = Monochromator_bent(
+    zwidth = 0.08275558395724007,
+    yheight = 0.032021670575887555,
+    xthickness = 0.0005,
+    radius_x = 2.9299702571461985,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.760088458298231) RELATIVE source
+ROTATED (0, 38.75495465968723, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_19 = Monochromator_bent(
+    zwidth = 0.08378873237209834,
+    yheight = 0.0324679162366587,
+    xthickness = 0.0005,
+    radius_x = 2.946970319388694,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.770088458298231) RELATIVE source
+ROTATED (0, 38.994300590374216, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_20 = Monochromator_bent(
+    zwidth = 0.08523510527692972,
+    yheight = 0.03285047399363413,
+    xthickness = 0.0005,
+    radius_x = 2.947423462062219,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.780088458298231) RELATIVE source
+ROTATED (0, 39.2332829929821, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_21 = Monochromator_bent(
+    zwidth = 0.08481361434789979,
+    yheight = 0.03329707148923055,
+    xthickness = 0.0005,
+    radius_x = 2.9516948607194715,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.790088458298231) RELATIVE source
+ROTATED (0, 39.473861408517664, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_22 = Monochromator_bent(
+    zwidth = 0.08582014507208968,
+    yheight = 0.033743566706154735,
+    xthickness = 0.0005,
+    radius_x = 2.9490496131625075,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.800088458298231) RELATIVE source
+ROTATED (0, 39.71515800474511, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_23 = Monochromator_bent(
+    zwidth = 0.08686616036731054,
+    yheight = 0.034140378549422014,
+    xthickness = 0.0005,
+    radius_x = 2.938196630867787,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8100884582982311) RELATIVE source
+ROTATED (0, 39.95707432499341, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_24 = Monochromator_bent(
+    zwidth = 0.08644066416053885,
+    yheight = 0.03458712896971455,
+    xthickness = 0.0005,
+    radius_x = 2.9245083390640274,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8200884582982311) RELATIVE source
+ROTATED (0, 40.20037504749632, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_25 = Monochromator_bent(
+    zwidth = 0.08742036977105623,
+    yheight = 0.03503379485569321,
+    xthickness = 0.0005,
+    radius_x = 2.898499909585128,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8300884582982311) RELATIVE source
+ROTATED (0, 40.44487724382992, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_26 = Monochromator_bent(
+    zwidth = 0.08843868783512303,
+    yheight = 0.03543203625324905,
+    xthickness = 0.0005,
+    radius_x = 2.8712609724824634,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8400884582982311) RELATIVE source
+ROTATED (0, 40.69091649895137, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_27 = Monochromator_bent(
+    zwidth = 0.08800627323583599,
+    yheight = 0.03587897867572419,
+    xthickness = 0.0005,
+    radius_x = 2.8357350040135745,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8500884582982311) RELATIVE source
+ROTATED (0, 40.938450294909146, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_28 = Monochromator_bent(
+    zwidth = 0.08929978872070411,
+    yheight = 0.03632585465129224,
+    xthickness = 0.0005,
+    radius_x = 2.777987522899187,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8600884582982311) RELATIVE source
+ROTATED (0, 41.187885391194605, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_29 = Monochromator_bent(
+    zwidth = 0.09028494113871582,
+    yheight = 0.036725534809827196,
+    xthickness = 0.0005,
+    radius_x = 2.728494211902119,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8700884582982311) RELATIVE source
+ROTATED (0, 41.44009035724288, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_30 = Monochromator_bent(
+    zwidth = 0.08983821683994857,
+    yheight = 0.03717271464992166,
+    xthickness = 0.0005,
+    radius_x = 2.6637294000350398,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8800884582982311) RELATIVE source
+ROTATED (0, 41.69410145585204, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_31 = Monochromator_bent(
+    zwidth = 0.09074428116517753,
+    yheight = 0.037619849175993314,
+    xthickness = 0.0005,
+    radius_x = 2.5682557576984952,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.8900884582982311) RELATIVE source
+ROTATED (0, 41.951140797322154, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_32 = Monochromator_bent(
+    zwidth = 0.09203886640904534,
+    yheight = 0.03800950084407475,
+    xthickness = 0.0005,
+    radius_x = 2.4879223353464175,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9000884582982311) RELATIVE source
+ROTATED (0, 42.21348611029463, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_33 = Monochromator_bent(
+    zwidth = 0.092558807854864,
+    yheight = 0.03845708019977417,
+    xthickness = 0.0005,
+    radius_x = 2.3557164020632526,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9100884582982312) RELATIVE source
+ROTATED (0, 42.47873655390719, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_34 = Monochromator_bent(
+    zwidth = 0.08809032316180643,
+    yheight = 0.03890464199783919,
+    xthickness = 0.0005,
+    radius_x = 2.3145921881417686,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9200884582982312) RELATIVE source
+ROTATED (0, 42.746219505063564, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_35 = Monochromator_bent(
+    zwidth = 0.08470875813671634,
+    yheight = 0.03930740330667787,
+    xthickness = 0.0005,
+    radius_x = 2.291483856097038,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9300884582982312) RELATIVE source
+ROTATED (0, 43.01875584443871, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_36 = Monochromator_bent(
+    zwidth = 0.0799700742586517,
+    yheight = 0.03975537102141946,
+    xthickness = 0.0005,
+    radius_x = 2.2505408566585348,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9400884582982312) RELATIVE source
+ROTATED (0, 43.2930526461892, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_37 = Monochromator_bent(
+    zwidth = 0.07793790704996095,
+    yheight = 0.040170340093780246,
+    xthickness = 0.0005,
+    radius_x = 2.1756847577357843,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9500884582982312) RELATIVE source
+ROTATED (0, 43.577221074552455, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_38 = Monochromator_bent(
+    zwidth = 0.07360030790545345,
+    yheight = 0.04060776698549516,
+    xthickness = 0.0005,
+    radius_x = 2.1295483923353666,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9600884582982312) RELATIVE source
+ROTATED (0, 43.8620488629705, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_39 = Monochromator_bent(
+    zwidth = 0.06895356082425434,
+    yheight = 0.04105628146501619,
+    xthickness = 0.0005,
+    radius_x = 2.0741260312112377,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9700884582982312) RELATIVE source
+ROTATED (0, 44.15256729065363, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_40 = Monochromator_bent(
+    zwidth = 0.06603219877163607,
+    yheight = 0.04145128904284828,
+    xthickness = 0.0005,
+    radius_x = 2.036498894266056,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9800884582982312) RELATIVE source
+ROTATED (0, 44.449534626673206, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_41 = Monochromator_bent(
+    zwidth = 0.061445022067135514,
+    yheight = 0.041900561961020134,
+    xthickness = 0.0005,
+    radius_x = 1.9705411161560504,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 0.9900884582982312) RELATIVE source
+ROTATED (0, 44.754531942864546, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_42 = Monochromator_bent(
+    zwidth = 0.056891594444929736,
+    yheight = 0.04235005124793069,
+    xthickness = 0.0005,
+    radius_x = 1.897817106671356,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 1.0000884582982312) RELATIVE source
+ROTATED (0, 45.06947238563547, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_43 = Monochromator_bent(
+    zwidth = 0.0537062314545185,
+    yheight = 0.04275810889984801,
+    xthickness = 0.0005,
+    radius_x = 1.8394584169039285,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 1.0100884582982312) RELATIVE source
+ROTATED (0, 45.39286461363646, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_44 = Monochromator_bent(
+    zwidth = 0.04824834288562266,
+    yheight = 0.04320877236345719,
+    xthickness = 0.0005,
+    radius_x = 1.784778344731803,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 1.0200884582982312) RELATIVE source
+ROTATED (0, 45.719934361579654, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+COMPONENT Analyzer_45 = Monochromator_bent(
+    zwidth = 0.04347135501377188,
+    yheight = 0.04366020910051233,
+    xthickness = 0.0005,
+    radius_x = 1.7009660804373992,
+    plane_of_reflection = "Si111",
+    angle_to_cut_horizontal = 0,
+    angle_to_cut_vertical = 0,
+    mosaicity = 20,
+    domainthickness = 10,
+    temperature = 0,
+    verbose = 1
+)
+AT (0, 0, 1.0300884582982313) RELATIVE source
+ROTATED (0, 46.070847274540796, 0) RELATIVE source
+GROUP Analyzer
+EXTEND %{
+    if(SCATTERED){scat=1;}
+%}
+
+
+
+
+COMPONENT rotator = Arm()
+AT (0, 0, 0) RELATIVE source
+ROTATED (0, 0, -90) RELATIVE source
+
+COMPONENT detector_pos = Arm()
+AT (0, L1,L0) RELATIVE rotator
+
+COMPONENT detector = Arm()
+AT (0,0,0) RELATIVE detector_pos
+ROTATED (90+det_rot,0,90) RELATIVE detector_pos
+
+COMPONENT psd_monitor_end = PSD_monitor(
+    nx=1001, 
+    ny=1001, 
+    xwidth=Ld, 
+    yheight=0.5,
+    restore_neutron=1)
+WHEN (scat == 1)
+AT (0, 0, 0) RELATIVE detector
+
+COMPONENT E_PSD_mon_end = Monitor_nD(
+    options = "x bins=1001 energy limits=[1 7] bins=1201",
+    filename="E_end", 
+    xwidth=Ld, 
+    yheight=0.5,
+	restore_neutron=1)
+WHEN (scat == 1)
+AT (0, 0, 0) RELATIVE detector
+
+
+
+FINALLY
+%{
+%}
+
+END
